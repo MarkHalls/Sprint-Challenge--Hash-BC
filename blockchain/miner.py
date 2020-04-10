@@ -2,6 +2,8 @@ import hashlib
 import requests
 
 import sys
+import math
+import os, binascii
 
 from uuid import uuid4
 
@@ -24,7 +26,9 @@ def proof_of_work(last_proof):
 
     print("Searching for next proof")
     proof = 0
-    while not valid_proof(last_proof, proof):
+    last_hash = hashlib.sha256(f"{last_proof}".encode()).hexdigest()
+
+    while not valid_proof(last_hash, proof):
         proof = random.randint(0, 2147483647)
 
     print("Proof found: " + str(proof) + " in " + str(timer() - start))
@@ -39,9 +43,8 @@ def valid_proof(last_hash, proof):
 
     IE:  last_hash: ...AE912345, new hash 12345E88...
     """
-    hash_last = hashlib.sha256(f"{last_hash}".encode()).hexdigest()
     my_proof = hashlib.sha256(f"{proof}".encode()).hexdigest()
-    return hash_last[-5:] == my_proof[:5]
+    return last_hash[-5:] == my_proof[:5]
 
 
 if __name__ == "__main__":
@@ -70,11 +73,13 @@ if __name__ == "__main__":
         new_proof = proof_of_work(data.get("proof"))
 
         post_data = {"proof": new_proof, "id": id}
-
-        r = requests.post(url=node + "/mine", json=post_data)
-        data = r.json()
-        if data.get("message") == "New Block Forged":
-            coins_mined += 1
-            print("Total coins mined: " + str(coins_mined))
-        else:
-            print(data.get("message"))
+        try:
+            r = requests.post(url=node + "/mine", json=post_data)
+            data = r.json()
+            if data.get("message") == "New Block Forged":
+                coins_mined += 1
+                print("Total coins mined: " + str(coins_mined))
+            else:
+                print(data.get("message"))
+        except:
+            print("Didn't recieve a valid json object. Server may have timed out.")
